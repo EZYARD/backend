@@ -1,5 +1,7 @@
 TO RUN THE BACKEND:
 
+PYTHON VERSION REQUIRED: 3.11.0
+
 pip install virtualenv
 virtualenv --python=/path/to/python3.11 venv
 venv\Scripts\activate
