@@ -12,3 +12,11 @@ cd into /backend
 
 run
 fastapi dev main.py
+
+RUNNING BACKEND:
+
+cd db
+docker-compose up -d
+alembic upgrade head
+
+profit :)
