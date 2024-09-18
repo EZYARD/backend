@@ -7,3 +7,8 @@ venv\Scripts\activate
 once ready:
 
 pip install -r requirements.txt
+
+cd into /backend
+
+run
+fastapi dev main.py
