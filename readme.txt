@@ -13,7 +13,7 @@ cd into /backend
 run
 fastapi dev main.py
 
-RUNNING BACKEND:
+RUNNING DB:
 
 cd db
 docker-compose up -d
