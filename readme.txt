@@ -21,4 +21,7 @@ cd db
 docker-compose up -d
 alembic upgrade head
 
+
+db url on local: postgresql+psycopg2://myuser:mypassword@localhost:5432/mydb
+
 profit :)
