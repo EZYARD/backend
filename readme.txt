@@ -30,6 +30,8 @@ db url on local: postgresql+psycopg2://myuser:mypassword@localhost:5432/mydb
 CREATING A REVISION TO THE DB
 =============================
 
+https://alembic.sqlalchemy.org/en/latest/autogenerate.html
+
 step 1.
 alembic revision -m "My revision Message"
 step 2.
