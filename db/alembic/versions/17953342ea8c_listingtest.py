@@ -13,8 +13,8 @@ from datetime import datetime
 
 
 # revision identifiers, used by Alembic.
-revision: str = '66d61b7d9162'
-down_revision: Union[str, None] = None
+revision: str = '17953342ea8c'
+down_revision: Union[str, None] = '40e77c93b3e7'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
