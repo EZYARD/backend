@@ -6,9 +6,9 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from images import ImageModel
+
 app = FastAPI()
 
-# Database configuration (update with your connection string)
 DATABASE_URL = 'postgresql+psycopg2://myuser:mypassword@localhost:5432/mydb'
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -39,6 +39,7 @@ async def get_images_by_listing(listing_id: int, db: Session = Depends(get_db)):
 
     # Return metadata about the images (e.g., their IDs and download URLs)
     return [{"id": image.id, "download_url": f"/images/download/{image.id}"} for image in images]
+
 
 # Route to download a specific image by image_id
 @app.get("/images/download/{image_id}")
