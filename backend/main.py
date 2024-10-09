@@ -9,7 +9,7 @@ from images import ImageModel
 
 app = FastAPI()
 
-DATABASE_URL = 'postgresql+psycopg2://myuser:mypassword@localhost:5432/mydb'
+DATABASE_URL = 'postgresql://postgres.caqhpdgzupylreopabwo:hn8jHcykyYzVqiYF@aws-0-us-west-1.pooler.supabase.com:6543/postgres'
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

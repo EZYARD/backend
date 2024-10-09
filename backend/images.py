@@ -5,7 +5,7 @@ from sqlalchemy import MetaData
 from PIL import Image
 
 Base = declarative_base()
-DATABASE_URL = 'postgresql+psycopg2://myuser:mypassword@localhost:5432/mydb'
+DATABASE_URL = 'postgresql://postgres.caqhpdgzupylreopabwo:hn8jHcykyYzVqiYF@aws-0-us-west-1.pooler.supabase.com:6543/postgres'
 
 
 # Define the Image model
