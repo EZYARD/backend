@@ -6,10 +6,11 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from images import ImageModel
+from listingReturn import ListingModel
 
 app = FastAPI()
 
-DATABASE_URL = 'postgresql+psycopg2://myuser:mypassword@localhost:5432/mydb'
+DATABASE_URL = 'postgresql://postgres.caqhpdgzupylreopabwo:hn8jHcykyYzVqiYF@aws-0-us-west-1.pooler.supabase.com:6543/postgres'
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -55,3 +56,16 @@ async def download_image(image_id: int, db: Session = Depends(get_db)):
 
     # Return the image as a streaming response
     return StreamingResponse(image_data, media_type="image/png")  # Adjust media type as needed
+
+
+# Route to return metadata of images by listing_id
+@app.get("/listings")
+async def get_images_by_listing(db: Session = Depends(get_db)):
+    # Query the database for all images with the given listing_id
+    listings = db.query(ListingModel).all()
+
+    if not listings:
+        raise HTTPException(status_code=404, detail="No listings found for the listing ID")
+
+    # Return metadata about the images (e.g., their IDs and download URLs)
+    return listings
