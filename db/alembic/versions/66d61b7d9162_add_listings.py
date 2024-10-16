@@ -26,7 +26,7 @@ def upgrade() -> None:
                     sa.Column('name', sa.String(), nullable=False),
 
                     #address information is broken up into these 5 variables
-                    sa.Column('streetNumber', sa.String(), nullable=False),
+                    sa.Column('streetNumber', sa.Integer(), nullable=False),
                     sa.Column('streetName', sa.String(), nullable=False),
                     sa.Column('city', sa.String(), nullable=False),
                     sa.Column('state', sa.String(), nullable=False),
