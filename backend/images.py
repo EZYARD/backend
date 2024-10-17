@@ -3,9 +3,9 @@ from sqlalchemy import create_engine, Column, Integer, LargeBinary
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import MetaData
 from PIL import Image
+from constants import DATABASE_URL
 
 Base = declarative_base()
-DATABASE_URL = 'postgresql://postgres.caqhpdgzupylreopabwo:hn8jHcykyYzVqiYF@aws-0-us-west-1.pooler.supabase.com:6543/postgres'
 
 
 # Define the Image model
@@ -76,7 +76,7 @@ def download_image_from_db(image_id, output_path):
 # Example usage
 if __name__ == "__main__":
     # Upload an image
-    image_path = "test-img.jpg"  # Replace with the path to your image
+    image_path = "test-images/garage-sale1.jpg"  # Replace with the path to your image
     listing_id = 124  # Replace with your listing ID
     upload_image_to_db(image_path, listing_id)
 

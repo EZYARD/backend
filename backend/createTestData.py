@@ -2,9 +2,9 @@ from sqlalchemy import create_engine, MetaData, Table, insert
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import Column, Integer, String, DateTime
 from datetime import datetime
+from constants import DATABASE_URL
 
 # Replace with your actual database URL
-DATABASE_URL = 'postgresql://postgres.caqhpdgzupylreopabwo:hn8jHcykyYzVqiYF@aws-0-us-west-1.pooler.supabase.com:6543/postgres'
 
 # Define engine and session
 engine = create_engine(DATABASE_URL)

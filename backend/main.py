@@ -1,17 +1,21 @@
-import os
 from io import BytesIO
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
+
+from constants import DATABASE_URL
 from images import ImageModel
 from listingReturn import ListingModel
 
 app = FastAPI()
 
-DATABASE_URL = 'postgresql://postgres.caqhpdgzupylreopabwo:hn8jHcykyYzVqiYF@aws-0-us-west-1.pooler.supabase.com:6543/postgres'
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL,
+    pool_timeout=30,  # Set pool timeout (in seconds)
+    connect_args={"options": "-c statement_timeout=5000"}  # Set statement timeout to 5 seconds (5000 milliseconds)
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -42,7 +46,10 @@ async def get_images_by_listing(listing_id: int, db: Session = Depends(get_db)):
     return [{"id": image.id, "download_url": f"/images/download/{image.id}"} for image in images]
 
 
-# Route to download a specific image by image_id
+async def iterfile(image_data):
+    yield image_data.read()
+
+
 @app.get("/images/download/{image_id}")
 async def download_image(image_id: int, db: Session = Depends(get_db)):
     # Query the database for the image by its ID
@@ -54,8 +61,8 @@ async def download_image(image_id: int, db: Session = Depends(get_db)):
     # Convert the binary data to a file-like object using BytesIO
     image_data = BytesIO(image.image_data)
 
-    # Return the image as a streaming response
-    return StreamingResponse(image_data, media_type="image/png")  # Adjust media type as needed
+    # Return the image as a streaming response with proper chunking
+    return StreamingResponse(iterfile(image_data), media_type="image/png")  # Adjust media type as needed
 
 
 # Route to return metadata of images by listing_id
