@@ -2,14 +2,18 @@ from io import BytesIO
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import StreamingResponse
-from sqlalchemy import create_engine
+from geopy.distance import geodesic
+from googlemaps import Client as GoogleMapsClient
+from sqlalchemy import create_engine, update
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker, Session
 
-from constants import DATABASE_URL
+from constants import DATABASE_URL, MAPS_API_KEY
 from images import ImageModel
 from listingReturn import ListingModel
 
 app = FastAPI()
+gmaps = GoogleMapsClient(key=MAPS_API_KEY)
 
 engine = create_engine(
     DATABASE_URL,
@@ -76,3 +80,88 @@ async def get_images_by_listing(db: Session = Depends(get_db)):
 
     # Return metadata about the images (e.g., their IDs and download URLs)
     return listings
+
+
+# Function to convert an address or zip code to latitude and longitude using Google Maps API
+def get_lat_lon_from_address(address: str):
+    print("ATTEMPTING TO GET LATITUDE AND LONGITUDE")
+    print(address)
+    try:
+        geocode_result = gmaps.geocode(address)
+        if not geocode_result:
+            return None
+
+        location = geocode_result[0]['geometry']['location']
+        return location['lat'], location['lng']
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Error retrieving location information")
+
+
+# Function to update listings with missing latitude and longitude
+def update_missing_coordinates(db: Session):
+    listings = db.query(ListingModel).filter(
+        (ListingModel.latitude == None) | (ListingModel.longitude == None)).all()
+
+    for listing in listings:
+        # Construct the full address of the listing
+        listing_address = f"{listing.streetNumber} {listing.streetName}, {listing.city}, {listing.state} {listing.zipcode}"
+        location = get_lat_lon_from_address(listing_address)
+
+        if location:
+            lat, lng = location
+            try:
+                # Update the listing with the new coordinates
+                stmt = update(ListingModel).where(ListingModel.id == listing.id).values(latitude=lat, longitude=lng)
+                db.execute(stmt)
+                db.commit()
+            except SQLAlchemyError as e:
+                db.rollback()
+                raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+# Endpoint to get listings within a given range based on straight-line distance
+@app.get("/listings/distance")
+async def get_listings_by_distance(
+        location: str,
+        radius: float,
+        db: Session = Depends(get_db)
+):
+    # Update any listings that are missing coordinates
+    update_missing_coordinates(db)
+
+    # Convert the user-provided location to latitude and longitude
+    user_location = get_lat_lon_from_address(location)
+    if not user_location:
+        raise HTTPException(status_code=400, detail="Invalid address or zip code")
+    user_lat, user_lng = user_location
+
+    # Retrieve all listings from the database
+    listings = db.query(ListingModel).all()
+
+    if not listings:
+        raise HTTPException(status_code=404, detail="No listings found")
+
+    # Prepare results list
+    results = []
+
+    # Iterate over each listing and calculate the straight-line distance
+    for listing in listings:
+        if listing.latitude is None or listing.longitude is None:
+            continue  # Skip listings that couldn't be updated with coordinates
+
+        listing_location = (listing.latitude, listing.longitude)
+        user_location = (user_lat, user_lng)
+
+        # Calculate the straight-line distance in miles
+        distance = geodesic(user_location, listing_location).miles
+
+        if distance <= radius:
+            results.append({
+                "id": listing.id,
+                "name": listing.name,
+                "address": f"{listing.streetNumber} {listing.streetName}, {listing.city}, {listing.state} {listing.zipcode}",
+                "distance_miles": round(distance, 2)
+            })
+
+    return results

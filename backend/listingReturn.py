@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, LargeBinary, String, DateTime
+from sqlalchemy import create_engine, Column, Integer, LargeBinary, String, DateTime, Float
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import MetaData
 from PIL import Image
@@ -36,3 +36,5 @@ class ListingModel(Base):
     rating = Column(String, nullable = True)
 
     reviews = Column(String, nullable = True)
+    longitude = Column(Float, nullable = True)
+    latitude = Column(Float, nullable = True)
