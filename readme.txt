@@ -13,6 +13,10 @@ pip install -r requirements.txt
 
 cd into /backend
 
+create a file called constants.py. This file should contain the following:
+DATABASE_URL='db url here'
+MAPS_API_KEY='maps api key here'
+
 run
 fastapi dev main.py
 
