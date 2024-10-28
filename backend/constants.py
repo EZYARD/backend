@@ -1,2 +1,0 @@
-DATABASE_URL=''
-MAPS_API_KEY=''
