@@ -1,12 +1,14 @@
+from datetime import datetime
 from io import BytesIO
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.responses import StreamingResponse
 from geopy.distance import geodesic
 from googlemaps import Client as GoogleMapsClient
 from sqlalchemy import create_engine, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker, Session
+from typing import Optional
 
 from constants import DATABASE_URL, MAPS_API_KEY
 from images import ImageModel
@@ -35,6 +37,85 @@ def get_db():
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
+
+
+@app.put("/listings/update/{listing_id}")
+async def update_listing(
+        listing_id: int,
+        name: Optional[str] = Query(None),
+        streetNumber: Optional[int] = Query(None),
+        streetName: Optional[str] = Query(None),
+        city: Optional[str] = Query(None),
+        state: Optional[str] = Query(None),
+        zipcode: Optional[int] = Query(None),
+        description: Optional[str] = Query(None),
+        startTime: Optional[datetime] = Query(None),
+        endTime: Optional[datetime] = Query(None),
+        tags: Optional[str] = Query(None),
+        priceRange: Optional[str] = Query(None),
+        rating: Optional[str] = Query(None),
+        reviews: Optional[str] = Query(None),
+        longitude: Optional[float] = Query(None),
+        latitude: Optional[float] = Query(None),
+        db: Session = Depends(get_db)
+):
+    # Find the listing by ID
+    listing = db.query(ListingModel).filter_by(id=listing_id).first()
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+
+    # Prepare an update dictionary with only non-None values
+    update_data = {}
+    if name is not None:
+        update_data['name'] = name
+    if streetNumber is not None:
+        update_data['streetNumber'] = streetNumber
+    if streetName is not None:
+        update_data['streetName'] = streetName
+    if city is not None:
+        update_data['city'] = city
+    if state is not None:
+        update_data['state'] = state
+    if zipcode is not None:
+        update_data['zipcode'] = zipcode
+    if description is not None:
+        update_data['description'] = description
+    if startTime is not None:
+        update_data['startTime'] = startTime
+    if endTime is not None:
+        update_data['endTime'] = endTime
+    if tags is not None:
+        update_data['tags'] = tags
+    if priceRange is not None:
+        update_data['priceRange'] = priceRange
+    if rating is not None:
+        update_data['rating'] = rating
+    if reviews is not None:
+        update_data['reviews'] = reviews
+    if longitude is not None:
+        update_data['longitude'] = longitude
+    if latitude is not None:
+        update_data['latitude'] = latitude
+
+    # Perform the update
+    if update_data:
+        stmt = (
+            update(ListingModel)
+            .where(ListingModel.id == listing_id)
+            .values(**update_data)
+            .execution_options(synchronize_session="fetch")
+        )
+        try:
+            db.execute(stmt)
+            db.commit()
+        except SQLAlchemyError as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail="Database error")
+
+    # Fetch the updated listing
+    updated_listing = db.query(ListingModel).filter_by(id=listing_id).first()
+
+    return updated_listing
 
 
 # Route to return metadata of images by listing_id
