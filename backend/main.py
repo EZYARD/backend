@@ -58,7 +58,7 @@ async def download_image(image_id: int, db: Session = Depends(get_db)):
     return StreamingResponse(image_data, media_type="image/png")  # Adjust media type as needed
 
 # Route to return metadata of images by listing_id
-@app.get("/listings}")
+@app.get("/listings")
 async def get_images_by_listing(db: Session = Depends(get_db)):
     # Query the database for all images with the given listing_id
     listings = db.query(ListingModel).all()
