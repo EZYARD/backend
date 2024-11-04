@@ -13,6 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import sessionmaker
 
+from addTestImages import add_images_to_listings
 from constants import DATABASE_URL, MAPS_API_KEY
 from images import ImageModel
 from listingReturn import ListingModel
@@ -89,23 +90,12 @@ async def update_listing(
         reviews: Optional[str] = Query(None),
         longitude: Optional[float] = Query(None),
         latitude: Optional[float] = Query(None),
-        db: Session = Depends(get_db),
-        authorization: str = Header(...)
+        db: Session = Depends(get_db)
 ):
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=400, detail="Invalid authorization header format")
-
-    token = authorization.split("Bearer ")[1]
-    user_id = verify_token(token)
-
     # Find the listing by ID
     listing = db.query(ListingModel).filter_by(id=listing_id).first()
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
-
-    # Check if the user is the owner of the listing
-    if listing.uid != user_id:
-        raise HTTPException(status_code=403, detail="User is not the owner of the listing")
 
     # Prepare an update dictionary with only non-None values
     update_data = {}
@@ -341,6 +331,7 @@ async def create_listing(
         db.add(new_listing)
         db.commit()
         db.refresh(new_listing)
+        add_images_to_listings()
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
