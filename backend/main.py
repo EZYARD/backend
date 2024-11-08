@@ -3,7 +3,7 @@ from io import BytesIO
 from typing import Optional
 
 import firebase_admin
-from fastapi import FastAPI, HTTPException, Depends, Query, Header, Body
+from fastapi import FastAPI, HTTPException, Depends, Query, Header, Body, File, Form, UploadFile
 from fastapi.responses import StreamingResponse
 from firebase_admin import auth, credentials
 from geopy.distance import geodesic
@@ -331,9 +331,64 @@ async def create_listing(
         db.add(new_listing)
         db.commit()
         db.refresh(new_listing)
-        add_images_to_listings()
+        #add_images_to_listings()
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     return {"message": "Listing created successfully", "listing": new_listing}
+
+@app.post("/images/upload")
+async def upload_image(
+    listing_id: int = Form(...),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    try:
+        # Read the uploaded file's content in binary format
+        image_data = await file.read()
+
+        # Save the image to the database using ImageModel
+        new_image = ImageModel(listing_id=listing_id, image_data=image_data)
+        db.add(new_image)
+        db.commit()
+        db.refresh(new_image)  # Refresh to get the new image's ID
+
+        return {"message": "Image uploaded successfully", "image_id": new_image.id}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
+
+
+# @app.delete("/images/delete/{image_id}")
+# async def delete_image(
+#     image_id: int,
+#     authorization: str = Header(...),
+#     db: Session = Depends(get_db)
+# ):
+#     # Verify the user token and get the user ID
+#     try:
+#         token = authorization.split("Bearer ")[1]
+#         user_id = verify_token(token)  # This should return the user ID from the token
+#     except Exception:
+#         raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+#     try:
+#         # Find the image by ID
+#         image = db.query(ImageModel).filter_by(id=image_id).first()
+
+#         if not image:
+#             raise HTTPException(status_code=404, detail="Image not found")
+
+#         # Ensure the user owns the image
+#         if image.user_id != user_id:
+#             raise HTTPException(status_code=403, detail="Not authorized to delete this image")
+
+#         # Delete the image
+#         db.delete(image)
+#         db.commit()
+
+#         return {"message": f"Image with ID {image_id} deleted successfully."}
+#     except Exception as e:
+#         db.rollback()
+#         raise HTTPException(status_code=500, detail=f"Failed to delete image: {str(e)}")
