@@ -359,36 +359,3 @@ async def upload_image(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
 
-
-# @app.delete("/images/delete/{image_id}")
-# async def delete_image(
-#     image_id: int,
-#     authorization: str = Header(...),
-#     db: Session = Depends(get_db)
-# ):
-#     # Verify the user token and get the user ID
-#     try:
-#         token = authorization.split("Bearer ")[1]
-#         user_id = verify_token(token)  # This should return the user ID from the token
-#     except Exception:
-#         raise HTTPException(status_code=401, detail="Invalid or expired token")
-
-#     try:
-#         # Find the image by ID
-#         image = db.query(ImageModel).filter_by(id=image_id).first()
-
-#         if not image:
-#             raise HTTPException(status_code=404, detail="Image not found")
-
-#         # Ensure the user owns the image
-#         if image.user_id != user_id:
-#             raise HTTPException(status_code=403, detail="Not authorized to delete this image")
-
-#         # Delete the image
-#         db.delete(image)
-#         db.commit()
-
-#         return {"message": f"Image with ID {image_id} deleted successfully."}
-#     except Exception as e:
-#         db.rollback()
-#         raise HTTPException(status_code=500, detail=f"Failed to delete image: {str(e)}")
