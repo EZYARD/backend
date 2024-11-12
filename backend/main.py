@@ -1,21 +1,38 @@
 from datetime import datetime
 from io import BytesIO
+from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Depends, Query
+import firebase_admin
+from fastapi import FastAPI, HTTPException, Depends, Query, Header, Body, File, Form, UploadFile
 from fastapi.responses import StreamingResponse
+from firebase_admin import auth, credentials
 from geopy.distance import geodesic
 from googlemaps import Client as GoogleMapsClient
 from sqlalchemy import create_engine, update
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import sessionmaker, Session
-from typing import Optional
+from sqlalchemy.orm import Session
+from sqlalchemy.orm import sessionmaker
 
+from addTestImages import add_images_to_listings
 from constants import DATABASE_URL, MAPS_API_KEY
 from images import ImageModel
 from listingReturn import ListingModel
 
 app = FastAPI()
 gmaps = GoogleMapsClient(key=MAPS_API_KEY)
+cred = credentials.Certificate("./serviceKey.json")
+if not firebase_admin._apps:
+    firebase_admin.initialize_app(cred)
+
+
+def verify_token(id_token: str):
+    try:
+        decoded_token = auth.verify_id_token(id_token)
+        uid = decoded_token['uid']
+        return uid
+    except firebase_admin.exceptions.FirebaseError as e:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
 
 engine = create_engine(
     DATABASE_URL,
@@ -23,6 +40,22 @@ engine = create_engine(
     connect_args={"options": "-c statement_timeout=5000"}  # Set statement timeout to 5 seconds (5000 milliseconds)
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+# Endpoint to test the authentication
+@app.get("/testAuth")
+async def test_auth(authorization: str = Header(...)):
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=400, detail="Invalid authorization header format")
+
+    token = authorization.split("Bearer ")[1]
+
+    # Verify token and get the user ID
+    try:
+        user_id = verify_token(token)
+        return {"message": "User authenticated", "user_id": user_id}
+    except HTTPException as e:
+        raise e
 
 
 # Helper function to get a database session
@@ -246,3 +279,83 @@ async def get_listings_by_distance(
             })
 
     return results
+
+
+@app.post("/listings/create")
+async def create_listing(
+        name: str = Body(...),
+        streetNumber: int = Body(...),
+        streetName: str = Body(...),
+        city: str = Body(...),
+        state: str = Body(...),
+        zipcode: int = Body(...),
+        description: str = Body(...),
+        startTime: datetime = Body(...),
+        endTime: datetime = Body(...),
+        tags: Optional[str] = Body(None),
+        priceRange: Optional[str] = Body(None),
+        rating: Optional[str] = Body(None),
+        reviews: Optional[str] = Body(None),
+        longitude: Optional[float] = Body(None),
+        latitude: Optional[float] = Body(None),
+        db: Session = Depends(get_db),
+        authorization: str = Header(...)
+):
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=400, detail="Invalid authorization header format")
+
+    token = authorization.split("Bearer ")[1]
+    user_id = verify_token(token)
+
+    # Create a new listing instance
+    new_listing = ListingModel(
+        uid=user_id,
+        name=name,
+        streetNumber=streetNumber,
+        streetName=streetName,
+        city=city,
+        state=state,
+        zipcode=zipcode,
+        description=description,
+        startTime=startTime,
+        endTime=endTime,
+        tags=tags,
+        priceRange=priceRange,
+        rating=rating,
+        reviews=reviews,
+        longitude=longitude,
+        latitude=latitude
+    )
+
+    try:
+        db.add(new_listing)
+        db.commit()
+        db.refresh(new_listing)
+        #add_images_to_listings()
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    return {"message": "Listing created successfully", "listing": new_listing}
+
+@app.post("/images/upload")
+async def upload_image(
+    listing_id: int = Form(...),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    try:
+        # Read the uploaded file's content in binary format
+        image_data = await file.read()
+
+        # Save the image to the database using ImageModel
+        new_image = ImageModel(listing_id=listing_id, image_data=image_data)
+        db.add(new_image)
+        db.commit()
+        db.refresh(new_image)  # Refresh to get the new image's ID
+
+        return {"message": "Image uploaded successfully", "image_id": new_image.id}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
+
