@@ -16,6 +16,8 @@ from sqlalchemy.orm import sessionmaker
 from addTestImages import add_images_to_listings
 from constants import DATABASE_URL, MAPS_API_KEY
 from images import ImageModel
+from reviews import ReviewModel
+from userData import UserData
 from listingReturn import ListingModel
 
 app = FastAPI()
@@ -358,4 +360,110 @@ async def upload_image(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
+
+
+
+@app.post("/reviews/create")
+async def create_review(
+        listing_id: int = Body(...),
+        review: str = Body(...),
+        db: Session = Depends(get_db),
+        authorization: str = Header(...)
+):
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=400, detail="Invalid authorization header format")
+
+    token = authorization.split("Bearer ")[1]
+    user_id = verify_token(token)
+
+    # Check if the user has already left a review for the listing
+    existing_review = db.query(ReviewModel).filter_by(uid=user_id, listing_id=listing_id).first()
+    if existing_review:
+        raise HTTPException(status_code=400, detail="User has already left a review for this listing")
+
+    # Create a new review
+    new_review = ReviewModel(
+        uid=user_id,
+        listing_id=listing_id,
+        review=review
+    )
+
+    try:
+        db.add(new_review)
+        db.commit()
+        db.refresh(new_review)
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    return {"message": "Review created successfully", "review": new_review}
+
+
+@app.get("/reviews/{listing_id}")
+async def get_reviews(listing_id: int, db: Session = Depends(get_db)):
+    # Retrieve all reviews for the given listing ID
+    reviews = db.query(ReviewModel).filter_by(listing_id=listing_id).all()
+
+    if not reviews:
+        raise HTTPException(status_code=404, detail="No reviews found for this listing")
+
+    return [{"id": review.id, "uid": review.uid, "review": review.review} for review in reviews]
+
+
+@app.post("/bookmarks/create")
+async def bookmark_listing(
+        listing_id: int = Body(...),
+        db: Session = Depends(get_db),
+        authorization: str = Header(...)
+):
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=400, detail="Invalid authorization header format")
+
+    token = authorization.split("Bearer ")[1]
+    user_id = verify_token(token)
+
+    # Retrieve the user data record
+    user_data = db.query(UserData).filter_by(uid=user_id).first()
+
+    if not user_data:
+        # Create a new user data record if none exists
+        user_data = UserData(
+            uid=user_id,
+            bookmarked_listings=[listing_id],
+            reviews_left=[]
+        )
+    else:
+        # Check if the listing is already bookmarked
+        if listing_id in user_data.bookmarked_listings:
+            raise HTTPException(status_code=400, detail="Listing is already bookmarked")
+
+        # Add the listing to the user's bookmarks
+        user_data.bookmarked_listings.append(listing_id)
+
+    try:
+        db.add(user_data)
+        db.commit()
+        db.refresh(user_data)
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    return {"message": "Listing bookmarked successfully", "bookmarked_listings": user_data.bookmarked_listings}
+
+
+@app.get("/bookmarks")
+async def get_bookmarks(db: Session = Depends(get_db), authorization: str = Header(...)):
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=400, detail="Invalid authorization header format")
+
+    token = authorization.split("Bearer ")[1]
+    user_id = verify_token(token)
+
+    # Retrieve the user's bookmarks
+    user_data = db.query(UserData).filter_by(uid=user_id).first()
+
+    if not user_data or not user_data.bookmarked_listings:
+        return {"message": "No bookmarks found", "bookmarked_listings": []}
+
+    return {"bookmarked_listings": user_data.bookmarked_listings}
 
