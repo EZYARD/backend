@@ -3,7 +3,7 @@ from io import BytesIO
 from typing import Optional
 
 import firebase_admin
-from fastapi import FastAPI, HTTPException, Depends, Query, Header, Body
+from fastapi import FastAPI, HTTPException, Depends, Query, Header, Body, File, Form, UploadFile
 from fastapi.responses import StreamingResponse
 from firebase_admin import auth, credentials
 from geopy.distance import geodesic
@@ -333,12 +333,34 @@ async def create_listing(
         db.add(new_listing)
         db.commit()
         db.refresh(new_listing)
-        add_images_to_listings()
+        #add_images_to_listings()
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     return {"message": "Listing created successfully", "listing": new_listing}
+
+@app.post("/images/upload")
+async def upload_image(
+    listing_id: int = Form(...),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    try:
+        # Read the uploaded file's content in binary format
+        image_data = await file.read()
+
+        # Save the image to the database using ImageModel
+        new_image = ImageModel(listing_id=listing_id, image_data=image_data)
+        db.add(new_image)
+        db.commit()
+        db.refresh(new_image)  # Refresh to get the new image's ID
+
+        return {"message": "Image uploaded successfully", "image_id": new_image.id}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
+
 
 
 @app.post("/reviews/create")
