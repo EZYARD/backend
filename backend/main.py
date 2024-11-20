@@ -12,6 +12,7 @@ from sqlalchemy import create_engine, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm.attributes import flag_modified
 
 from addTestImages import add_images_to_listings
 from constants import DATABASE_URL, MAPS_API_KEY
@@ -412,9 +413,9 @@ async def get_reviews(listing_id: int, db: Session = Depends(get_db)):
 
 @app.post("/bookmarks/create")
 async def bookmark_listing(
-        listing_id: int = Body(...),
-        db: Session = Depends(get_db),
-        authorization: str = Header(...)
+    listing_id: int = Body(...),
+    db: Session = Depends(get_db),
+    authorization: str = Header(...)
 ):
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=400, detail="Invalid authorization header format")
@@ -432,23 +433,26 @@ async def bookmark_listing(
             bookmarked_listings=[listing_id],
             reviews_left=[]
         )
+        db.add(user_data)
+        action = "added"
     else:
         # Check if the listing is already bookmarked
         if listing_id in user_data.bookmarked_listings:
-            raise HTTPException(status_code=400, detail="Listing is already bookmarked")
+            # Remove the listing from the user's bookmarks
+            user_data.bookmarked_listings.remove(listing_id)
+            action = "removed"
+        else:
+            # Add the listing to the user's bookmarks
+            user_data.bookmarked_listings.append(listing_id)
+            action = "added"
 
-        # Add the listing to the user's bookmarks
-        user_data.bookmarked_listings.append(listing_id)
+        # Mark the field as modified
+        flag_modified(user_data, "bookmarked_listings")
 
-    try:
-        db.add(user_data)
-        db.commit()
-        db.refresh(user_data)
-    except SQLAlchemyError as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    # Commit the changes to the database
+    db.commit()
 
-    return {"message": "Listing bookmarked successfully", "bookmarked_listings": user_data.bookmarked_listings}
+    return {"detail": f"Listing {action} successfully"}
 
 
 @app.get("/bookmarks")
