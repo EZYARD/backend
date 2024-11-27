@@ -362,6 +362,25 @@ async def upload_image(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
 
+@app.delete("/images/{listing_id}/{image_id}")
+async def delete_image(
+    listing_id: int,
+    image_id: int,
+    db: Session = Depends(get_db)
+):
+    image = db.query(ImageModel).filter_by(id=image_id, listing_id=listing_id).first()
+
+    if not image:
+        raise HTTPException(status_code=404, detail="Image not found or does not belong to the specified listing")
+
+    try:
+        db.delete(image)
+        db.commit()
+        return {"message": f"Image with ID {image_id} deleted successfully"}
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete image: {str(e)}")
+
 
 
 @app.post("/reviews/create")
