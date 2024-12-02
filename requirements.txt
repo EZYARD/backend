@@ -1,7 +1,7 @@
 SQLAlchemy==2.0.35
 alembic==1.13.2
 fastapi[standard]==0.115.0
-psycopg2==2.9.9
+psycopg2-binary==2.9.9
 pillow==10.4.0
 googlemaps==4.10.0
 geopy==2.4.1
