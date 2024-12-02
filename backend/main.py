@@ -331,6 +331,7 @@ async def create_listing(
         db.add(new_listing)
         db.commit()
         db.refresh(new_listing)
+        update_missing_coordinates(db)
         #add_images_to_listings()
     except SQLAlchemyError as e:
         db.rollback()
